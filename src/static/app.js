@@ -48,8 +48,9 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!res.ok) throw new Error('Failed to load activities');
       const activities = await res.json();
 
-      activitiesList.innerHTML = '';
-      // Populate select first option remains
+  activitiesList.innerHTML = '';
+  // reset select options and keep first placeholder
+  activitySelect.innerHTML = '<option value="">-- Select an activity --</option>';
       Object.keys(activities).forEach((name) => {
         const activity = activities[name];
 
@@ -87,21 +88,68 @@ document.addEventListener("DOMContentLoaded", () => {
         partTitle.textContent = 'Participants';
         partWrap.appendChild(partTitle);
 
-        if (activity.participants && activity.participants.length > 0) {
-          const ul = document.createElement('ul');
-          ul.className = 'participants-list';
-          activity.participants.forEach((email) => {
-            const li = document.createElement('li');
-            li.textContent = email;
-            ul.appendChild(li);
-          });
-          partWrap.appendChild(ul);
-        } else {
-          const empty = document.createElement('div');
-          empty.className = 'participants-empty';
-          empty.textContent = 'No participants yet.';
-          partWrap.appendChild(empty);
-        }
+          if (activity.participants && activity.participants.length > 0) {
+            const ul = document.createElement('ul');
+            ul.className = 'participants-list';
+
+            activity.participants.forEach((email) => {
+              const li = document.createElement('li');
+              li.className = 'participant-item';
+
+              const emailSpan = document.createElement('span');
+              emailSpan.className = 'participant-email';
+              emailSpan.textContent = email;
+
+              const delBtn = document.createElement('button');
+              delBtn.className = 'participant-delete';
+              delBtn.title = 'Remove participant';
+              delBtn.innerHTML = `\u2716`; // heavy multiplication X
+
+              // Delete handler
+              delBtn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                // Confirm action
+                const ok = confirm(`Remove ${email} from ${name}?`);
+                if (!ok) return;
+
+                try {
+                  const resp = await fetch(`/activities/${encodeURIComponent(name)}/participants?email=${encodeURIComponent(email)}`, {
+                    method: 'DELETE'
+                  });
+                  const json = await resp.json();
+                  if (resp.ok) {
+                    messageDiv.textContent = json.message;
+                    messageDiv.className = 'message success';
+                    messageDiv.classList.remove('hidden');
+                    // Refresh activities
+                    await loadActivities();
+                  } else {
+                    messageDiv.textContent = json.detail || 'Could not remove participant';
+                    messageDiv.className = 'message error';
+                    messageDiv.classList.remove('hidden');
+                  }
+                  setTimeout(() => messageDiv.classList.add('hidden'), 4000);
+                } catch (err) {
+                  console.error('Error removing participant', err);
+                  messageDiv.textContent = 'Failed to remove participant.';
+                  messageDiv.className = 'message error';
+                  messageDiv.classList.remove('hidden');
+                  setTimeout(() => messageDiv.classList.add('hidden'), 4000);
+                }
+              });
+
+              li.appendChild(emailSpan);
+              li.appendChild(delBtn);
+              ul.appendChild(li);
+            });
+
+            partWrap.appendChild(ul);
+          } else {
+            const empty = document.createElement('div');
+            empty.className = 'participants-empty';
+            empty.textContent = 'No participants yet.';
+            partWrap.appendChild(empty);
+          }
 
         card.appendChild(partWrap);
         activitiesList.appendChild(card);
@@ -131,11 +179,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (response.ok) {
         messageDiv.textContent = result.message;
-        messageDiv.className = "success";
+        messageDiv.className = "message success";
         signupForm.reset();
+        // Refresh activities so the new participant appears immediately
+        await loadActivities();
       } else {
         messageDiv.textContent = result.detail || "An error occurred";
-        messageDiv.className = "error";
+        messageDiv.className = "message error";
       }
 
       messageDiv.classList.remove("hidden");
@@ -153,5 +203,5 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // Initialize app
-  fetchActivities();
+  loadActivities();
 });
