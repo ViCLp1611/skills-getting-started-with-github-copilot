@@ -41,6 +41,77 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  // New script to render activities and participants
+  async function loadActivities() {
+    try {
+      const res = await fetch('/activities');
+      if (!res.ok) throw new Error('Failed to load activities');
+      const activities = await res.json();
+
+      activitiesList.innerHTML = '';
+      // Populate select first option remains
+      Object.keys(activities).forEach((name) => {
+        const activity = activities[name];
+
+        // Add option to select
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name;
+        activitySelect.appendChild(opt);
+
+        // Build activity card
+        const card = document.createElement('div');
+        card.className = 'activity-card';
+
+        const title = document.createElement('h4');
+        title.textContent = name;
+        card.appendChild(title);
+
+        const desc = document.createElement('p');
+        desc.textContent = activity.description;
+        card.appendChild(desc);
+
+        const sched = document.createElement('p');
+        sched.innerHTML = `<strong>Schedule:</strong> ${activity.schedule}`;
+        card.appendChild(sched);
+
+        const cap = document.createElement('p');
+        cap.innerHTML = `<strong>Capacity:</strong> ${activity.participants.length} / ${activity.max_participants}`;
+        card.appendChild(cap);
+
+        // Participants section
+        const partWrap = document.createElement('div');
+        partWrap.className = 'activity-participants';
+
+        const partTitle = document.createElement('h5');
+        partTitle.textContent = 'Participants';
+        partWrap.appendChild(partTitle);
+
+        if (activity.participants && activity.participants.length > 0) {
+          const ul = document.createElement('ul');
+          ul.className = 'participants-list';
+          activity.participants.forEach((email) => {
+            const li = document.createElement('li');
+            li.textContent = email;
+            ul.appendChild(li);
+          });
+          partWrap.appendChild(ul);
+        } else {
+          const empty = document.createElement('div');
+          empty.className = 'participants-empty';
+          empty.textContent = 'No participants yet.';
+          partWrap.appendChild(empty);
+        }
+
+        card.appendChild(partWrap);
+        activitiesList.appendChild(card);
+      });
+    } catch (err) {
+      console.error(err);
+      activitiesList.innerHTML = '<p class="error">Could not load activities.</p>';
+    }
+  }
+
   // Handle form submission
   signupForm.addEventListener("submit", async (event) => {
     event.preventDefault();
